@@ -768,8 +768,14 @@
         window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
 
-    function emailBorrowerDirectly() {
-        alert("Borrower email field is not yet integrated. Copy the preview text manually.");
+function emailBorrowerDirectly() {
+        // Now fully integrated to open your email client for the borrower
+        const subject = document.getElementById('milestone-subject').value;
+        const body = document.getElementById('milestone-body').value;
+        
+        // Since we don't have a borrower email field in the sidebar input yet,
+        // it opens the draft ready to send, allowing you to quickly type or select their address.
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
 
     function textRealtorDirectly() {
@@ -800,10 +806,16 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // TODO: Paste your real Firebase Config here
+    // Your live production keys loaded from the HMS1 Firebase Console
     const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        projectId: "YOUR_PROJECT_ID",
+        apiKey: "AIzaSyAy5FETfAYQaoXA3M8lk5WnxFEW7Ef-BVA",
+        authDomain: "hms1-505c8.firebaseapp.com",
+        databaseURL: "https://hms1-505c8.firebaseio.com",
+        projectId: "hms1-505c8",
+        storageBucket: "hms1-505c8.appspot.com",
+        messagingSenderId: "331735052230",
+        appId: "1:331735052230:web:1b64411a8670a4e71b8cc7",
+        measurementId: "G-JTRDBNERRX"
     };
 
     try {
@@ -848,7 +860,7 @@
             }
         };
     } catch (e) {
-        console.log("Firebase not initialized yet. Waiting for config.");
+        console.error("Initialization Error:", e);
     }
 </script>
 </body>
