@@ -142,7 +142,6 @@
         .btn-red { background-color: #dc3545; padding: 6px 10px; font-size: 12px; margin-top: 0; width: auto;}
         .btn-red:hover { background-color: #bd2130; }
         
-        /* New Portal Button Styles */
         .btn-purple { background-color: #6f42c1; }
         .btn-purple:hover { background-color: #59339d; }
 
@@ -381,25 +380,21 @@
             pin: "1527"
         },
         "View All": {
-            pin: "1234" // Master Admin PIN
+            pin: "1234" 
         }
     };
 
     const COMPANY_INFO = "Home Mortgage Solutions, LLC | NMLS #168687";
     const DROPBOX_LINK = "https://www.dropbox.com/request/fczussr5r7m8n2ndml3f";
-    
-    // THE LIVE PORTAL LINK
     const PORTAL_URL = "https://jfb315-dotcom.github.io/status/portal.html";
 
-    // --- SYSTEM STATE ---
-    let db = null;
+    let dbLocal = null;
     let fallbackStorage = false;
     let selectedClientId = null;
-    let currentViewLO = "John"; // Default view on load
+    let currentViewLO = "John"; 
     let showingArchive = false;
     let pendingPinView = null;
 
-    // --- NAVIGATION & SECURITY LOGIC ---
     function requestPinAccess(loName) {
         if (currentViewLO === loName) return; 
         pendingPinView = loName;
@@ -437,7 +432,6 @@
         if (e.key === 'Enter') verifyPin();
     });
 
-    // --- DATABASE INITIALIZATION ---
     function initDatabase() {
         try {
             const request = indexedDB.open("HMS_PipelineDB_v2", 1); 
@@ -445,7 +439,7 @@
             request.onerror = function() { enableStorageFallback(); };
             
             request.onsuccess = function(event) {
-                db = event.target.result;
+                dbLocal = event.target.result;
                 fallbackStorage = false;
                 renderPipeline();
             };
@@ -469,7 +463,6 @@
         renderPipeline();
     }
 
-    // --- PIPELINE RENDERING & FILTERING ---
     function renderPipeline() {
         const container = document.getElementById('pipeline-container');
         container.innerHTML = '';
@@ -480,8 +473,8 @@
             fileList = JSON.parse(localStorage.getItem("hms_pipeline_data_v2") || "[]");
             processList(fileList, container);
         } else {
-            if (!db) return;
-            const transaction = db.transaction(["customers"], "readonly");
+            if (!dbLocal) return;
+            const transaction = dbLocal.transaction(["customers"], "readonly");
             const store = transaction.objectStore("customers");
             
             store.getAll().onsuccess = function(event) {
@@ -522,7 +515,6 @@
         
         let displayBorrower = `${client.borrowerFirst || ''} ${client.borrowerLast || ''}`.trim() || 'Unnamed File';
         let displayLO = currentViewLO === 'View All' ? `<br><strong style="color:var(--navy-blue)">LO: ${client.assignedLO}</strong>` : '';
-
         let closeDisplay = client.closingDate ? new Date(client.closingDate).toLocaleDateString() : 'TBD';
 
         let actionBtn = showingArchive 
@@ -540,7 +532,6 @@
         container.appendChild(card);
     }
 
-    // --- DATA INTAKE & SELECTION ---
     function addClient() {
         const bFirst = document.getElementById('db-borrower-first').value.trim();
         const bLast = document.getElementById('db-borrower-last').value.trim();
@@ -570,7 +561,7 @@
             localStorage.setItem("hms_pipeline_data_v2", JSON.stringify(data));
             finishSave(newClient);
         } else {
-            const transaction = db.transaction(["customers"], "readwrite");
+            const transaction = dbLocal.transaction(["customers"], "readwrite");
             const store = transaction.objectStore("customers");
             const request = store.add(newClient);
             
@@ -642,11 +633,21 @@
         saveUpdatedClient(updatedClient);
     }
 
+    // 🔥 THIS IS WHERE THE AUTOMATED TEXT ENGINE IS TRIGGERED
     function updateClientMilestoneFromForm() {
         if (!selectedClientId) return;
+        
         const newStatus = document.getElementById('milestone-select').value;
+        const bPhone = document.getElementById('db-borrower-phone').value;
+        const bFirst = document.getElementById('db-borrower-first').value || "Client";
+        
         document.getElementById('db-status').value = newStatus;
         syncSidebarToWorkspace();
+
+        // Send instructions to the Twilio background engine
+        if (window.sendTwilioText) {
+            window.sendTwilioText(bPhone, bFirst, newStatus);
+        }
     }
 
     function saveUpdatedClient(updatedClient) {
@@ -661,7 +662,7 @@
                 if(window.syncFileToPortal) window.syncFileToPortal(updatedClient);
             }
         } else {
-            const transaction = db.transaction(["customers"], "readwrite");
+            const transaction = dbLocal.transaction(["customers"], "readwrite");
             const store = transaction.objectStore("customers");
             store.put(updatedClient);
             transaction.oncomplete = function() {
@@ -672,7 +673,6 @@
         }
     }
 
-    // --- ARCHIVE & DELETE ---
     function toggleArchiveView() {
         showingArchive = !showingArchive;
         selectedClientId = null;
@@ -693,7 +693,7 @@
                 if(window.deleteFileFromPortal) window.deleteFileFromPortal(id);
             }
         } else {
-            const store = db.transaction(["customers"], "readwrite").objectStore("customers");
+            const store = dbLocal.transaction(["customers"], "readwrite").objectStore("customers");
             store.get(id).onsuccess = function(e) {
                 let data = e.target.result;
                 data.archived = true;
@@ -716,7 +716,7 @@
             renderPipeline();
             if(window.deleteFileFromPortal) window.deleteFileFromPortal(id);
         } else {
-            const transaction = db.transaction(["customers"], "readwrite");
+            const transaction = dbLocal.transaction(["customers"], "readwrite");
             transaction.objectStore("customers").delete(id);
             transaction.oncomplete = function() { 
                 renderPipeline(); 
@@ -725,7 +725,6 @@
         }
     }
 
-    // --- COMMUNICATIONS GENERATOR ---
     function generateMilestoneEmail() {
         if (!selectedClientId) return;
 
@@ -739,7 +738,6 @@
         const loDetails = teamDirectory[loName];
         
         const signatureBlock = `\n\nBest regards,\n\n${loDetails.name}\n${loDetails.title}\nPhone: ${loDetails.phone}\nEmail: ${loDetails.email}\nNMLS: ${loDetails.nmls}\n\n${COMPANY_INFO}`;
-        
         const uploadString = `\n\nSECURE UPLOAD PORTAL: To securely submit any requested documents, please use our encrypted portal here: ${DROPBOX_LINK}`;
 
         const templates = {
@@ -769,7 +767,6 @@
         document.getElementById('milestone-body').value = templates[status].body + signatureBlock;
     }
 
-    // --- MANUAL TRIGGERS ---
     function emailRealtorDirectly() {
         const email = document.getElementById('db-realtor-email').value;
         if (!email) { alert("No Realtor email found."); return; }
@@ -801,19 +798,23 @@
     function sendPortalToBorrower() {
         const phone = document.getElementById('db-borrower-phone').value.replace(/\D/g, '');
         const bFirst = document.getElementById('db-borrower-first').value || "there";
-        if (!phone) { alert("No Borrower phone found in the sidebar."); return; }
-        
+        if (!phone) { alert("No Borrower phone found."); return; }
         const body = `Hi ${bFirst}! You can track your HMS loan status and securely upload documents 24/7 using our client portal: ${PORTAL_URL}`;
-        window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
+        navigator.clipboard.writeText(body).then(() => {
+            alert("Portal message copied to clipboard! (If your PC does not automatically open a text app, you can paste the message directly).");
+            window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
+        }).catch(err => { window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`; });
     }
 
     function sendPortalToRealtor() {
         const phone = document.getElementById('db-realtor-phone').value.replace(/\D/g, '');
         const rFirst = document.getElementById('db-realtor-first').value || "there";
-        if (!phone) { alert("No Realtor phone found in the sidebar."); return; }
-        
+        if (!phone) { alert("No Realtor phone found."); return; }
         const body = `Hi ${rFirst}! Just a heads up, you can track all your active HMS loan files in real-time through our partner portal here: ${PORTAL_URL}`;
-        window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
+        navigator.clipboard.writeText(body).then(() => {
+            alert("Portal message copied to clipboard! (If your PC does not automatically open a text app, you can paste the message directly).");
+            window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
+        }).catch(err => { window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`; });
     }
 
     function copyText(elementId) {
@@ -828,7 +829,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, deleteDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAy5FETfAYQaoXA3M8lk5WnxFEW7Ef-BVA",
@@ -844,6 +845,40 @@
     try {
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+
+        // --- THE NEW TWILIO ENGINE ---
+        window.sendTwilioText = async function(phone, firstName, milestone) {
+            if (!phone) return;
+            const cleanPhone = phone.replace(/\D/g, '');
+            if (cleanPhone.length < 10) return;
+
+            // Format phone to +14235550100 for Twilio
+            let formattedPhone = cleanPhone;
+            if (cleanPhone.length === 10) formattedPhone = "+1" + cleanPhone;
+            else if (cleanPhone.length === 11 && cleanPhone.startsWith("1")) formattedPhone = "+" + cleanPhone;
+
+            const statusNames = {
+                contract_received: "Contract Received & Processing",
+                appraisal_ordered: "Appraisal Ordered",
+                submitted_underwriting: "Submitted to Underwriting",
+                conditional_approval: "Conditional Approval",
+                clear_to_close: "Clear to Close (CTC)!"
+            };
+            
+            const readableMilestone = statusNames[milestone] || milestone;
+            const fullBody = `Hi ${firstName}! Quick update from HMS: Your loan file has been moved to: ${readableMilestone}. Track your progress anytime here: https://jfb315-dotcom.github.io/status/portal.html`;
+
+            try {
+                // Drop the message into the folder Twilio is watching
+                await addDoc(collection(db, "messages"), {
+                    to: formattedPhone,
+                    body: fullBody
+                });
+                console.log("Success: Twilio automated text queued!");
+            } catch (error) {
+                console.error("Firebase Twilio Error:", error);
+            }
+        };
 
         window.syncFileToPortal = async function(clientData) {
             if (!clientData || !clientData.id) return;
@@ -866,8 +901,6 @@
                     statusBucket: bucket,
                     closingDate: clientData.closingDate || "TBD",
                 }, { merge: true });
-                
-                console.log("Success: Portal synced.");
             } catch (error) {
                 console.error("Firebase Sync Error:", error);
             }
@@ -877,7 +910,6 @@
             try {
                 const loanRef = doc(db, "loans", fileId.toString());
                 await deleteDoc(loanRef);
-                console.log("Success: Portal wiped.");
             } catch (error) {
                 console.error("Firebase Delete Error:", error);
             }
