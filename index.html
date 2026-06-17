@@ -141,6 +141,10 @@
         .btn-green:hover { background-color: #218838; }
         .btn-red { background-color: #dc3545; padding: 6px 10px; font-size: 12px; margin-top: 0; width: auto;}
         .btn-red:hover { background-color: #bd2130; }
+        
+        /* New Portal Button Styles */
+        .btn-purple { background-color: #6f42c1; }
+        .btn-purple:hover { background-color: #59339d; }
 
         /* Pipeline List */
         .pipeline-list {
@@ -321,6 +325,9 @@
                 <button class="btn-blue" onclick="emailBorrowerDirectly()">Email Update to Borrower</button>
                 <button class="btn-green" onclick="textRealtorDirectly()">Text Update to Realtor</button>
                 <button class="btn-green" onclick="textBorrowerDirectly()">Text Update to Borrower</button>
+                
+                <button class="btn-purple" style="margin-top: 25px;" onclick="sendPortalToBorrower()">📱 Text Portal Link to Borrower</button>
+                <button class="btn-purple" onclick="sendPortalToRealtor()">🤝 Text Portal Link to Realtor</button>
             </div>
 
             <div class="preview-panel">
@@ -380,6 +387,9 @@
 
     const COMPANY_INFO = "Home Mortgage Solutions, LLC | NMLS #168687";
     const DROPBOX_LINK = "https://www.dropbox.com/request/fczussr5r7m8n2ndml3f";
+    
+    // THE LIVE PORTAL LINK
+    const PORTAL_URL = "https://jfb315-dotcom.github.io/status/portal.html";
 
     // --- SYSTEM STATE ---
     let db = null;
@@ -768,13 +778,9 @@
         window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
 
-function emailBorrowerDirectly() {
-        // Now fully integrated to open your email client for the borrower
+    function emailBorrowerDirectly() {
         const subject = document.getElementById('milestone-subject').value;
         const body = document.getElementById('milestone-body').value;
-        
-        // Since we don't have a borrower email field in the sidebar input yet,
-        // it opens the draft ready to send, allowing you to quickly type or select their address.
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
 
@@ -792,6 +798,24 @@ function emailBorrowerDirectly() {
         window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
     }
 
+    function sendPortalToBorrower() {
+        const phone = document.getElementById('db-borrower-phone').value.replace(/\D/g, '');
+        const bFirst = document.getElementById('db-borrower-first').value || "there";
+        if (!phone) { alert("No Borrower phone found in the sidebar."); return; }
+        
+        const body = `Hi ${bFirst}! You can track your HMS loan status and securely upload documents 24/7 using our client portal: ${PORTAL_URL}`;
+        window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
+    }
+
+    function sendPortalToRealtor() {
+        const phone = document.getElementById('db-realtor-phone').value.replace(/\D/g, '');
+        const rFirst = document.getElementById('db-realtor-first').value || "there";
+        if (!phone) { alert("No Realtor phone found in the sidebar."); return; }
+        
+        const body = `Hi ${rFirst}! Just a heads up, you can track all your active HMS loan files in real-time through our partner portal here: ${PORTAL_URL}`;
+        window.location.href = `sms:${phone}?&body=${encodeURIComponent(body)}`;
+    }
+
     function copyText(elementId) {
         const textEl = document.getElementById(elementId);
         textEl.select();
@@ -806,7 +830,6 @@ function emailBorrowerDirectly() {
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Your live production keys loaded from the HMS1 Firebase Console
     const firebaseConfig = {
         apiKey: "AIzaSyAy5FETfAYQaoXA3M8lk5WnxFEW7Ef-BVA",
         authDomain: "hms1-505c8.firebaseapp.com",
